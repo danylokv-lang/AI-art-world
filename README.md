@@ -1,69 +1,73 @@
 # AETHER — a living world from a phrase
 
-**Speak a phrase and a world is born.** It doesn't just render an image — it becomes a
-living system that keeps evolving on its own (day turns to night, seasons pass, the world
-flourishes or decays) and **reacts to everything you say next** ("let it rain", "night falls",
-"everything is dying"). Built for the *Hack The Arts* theme: **art that couldn't exist without technology.**
+**Speak a place into being — then watch it live.**
 
-## Why it's more than image generation
-The magic is a **two-layer architecture**:
+AETHER paints your words as a real, cinematic world, and then that world *keeps living*:
+time passes, weather turns, small events unfold — the painting **re-paints itself, frame by
+frame, with continuity** — and it **reacts to whatever you say next**. Say *"a lonely lighthouse
+on a stormy cliff"* and it appears; wait, and night falls, the beam sweeps the sea, stars emerge;
+say *"a ship appears on the horizon"* and one does — in the same place, same style.
 
-1. **The Director (semantic layer)** — an LLM (Gemini) that turns a natural-language phrase into a
-   strict JSON *world state*, and turns every follow-up into a *patch* to that state. Called rarely.
-2. **The living world (real-time layer)** — a continuous simulation + WebGL renderer (three.js) that
-   runs at 60fps, easing toward the Director's targets while time, weather and mood evolve on their own.
+Built for **Hack The Arts** — *"art that couldn't exist without technology."* The medium here
+*is* generative continuity: an AI image that authors its own evolution over time and in dialogue
+with you. No pre-recorded frames, no fixed outcomes — every world is unrepeatable.
 
-The LLM never draws pixels; the renderer never invents meaning. That split is what makes the world feel *alive*
-instead of *generated*.
+## Why it couldn't exist without technology
+The heart is **iterative image editing with continuity**. Each new frame is produced by feeding
+the *current frame* back to the image model with a single evolution instruction, so it's always
+the **same location** changing — not a new random picture. A language model plays **director**,
+choosing the next cinematic "beat" on its own (advance time, gather clouds, light the lanterns,
+let ivy grow) or honoring your command. Between frames a real-time layer keeps the canvas
+breathing (slow Ken Burns drift, weather particles, grain), so it feels continuous, not a slideshow.
 
 ```
-phrase / voice ─▶ Director (Gemini) ─▶ WorldState patch ─▶ WorldEngine (time, decay, weather)
-                                                              │
-                                        Renderer (sky, terrain, particles, light) ◀┘  ← 60fps
+phrase ─▶ Director (Gemini Flash) ─▶ beat: "night falls" ─┐
+                                                          ▼
+       current frame ─▶ Nano Banana (edit, keep continuity) ─▶ next frame
+                                                          │
+              LivingCanvas: cross-fade + Ken Burns + particles ◀┘   ← 60fps
 ```
+
+- **The world evolves autonomously** every few seconds (pause anytime by clicking *living*).
+- **You steer it** by voice or text — commands become the next beat, boldly and immediately.
+- **A memory filmstrip** records every frame; click one to look back through the world's life.
 
 ## Run
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev            # http://localhost:5173
+cp .env.example .env   # paste a Gemini API key
 ```
-Runs **fully offline** out of the box (a local heuristic Director). For the real AI Director:
-```bash
-cp .env.example .env      # then paste your Gemini key
-```
-Get a free key at <https://aistudio.google.com/apikey>.
+Get a free key at <https://aistudio.google.com/apikey>. (The living canvas needs it — image
+generation is the medium.)
 
 ## Use
-- Type or 🎙️ speak a phrase: *"a misty forest at dawn"*.
-- Then keep talking to it: *"let it rain"*, *"night falls"*, *"everything is dying"*, *"bring it back to life"*.
-- Walk away — the world ages, cycles day/night, and slowly decays if ignored.
-
-## Cost (Gemini)
-The Director uses **Gemini Flash** for text (fractions of a cent per phrase). Optional image
-backgrounds via **Imagen 4 Fast (~$0.02)** or **Nano Banana (~$0.039)**. A full demo session
-costs cents. See `src/director/prompts.js` for the Director brief.
+- Speak or type a place: *"an overgrown temple swallowed by jungle."*
+- Let it live — it evolves on its own; watch the age and beat captions.
+- Tell it what happens next: *"a storm rolls in"*, *"decades pass"*, *"dawn breaks"*, *"a figure appears"*.
+- Click a filmstrip frame to revisit a past moment; click **living** to pause/resume evolution.
 
 ## Tech
-- [three.js](https://threejs.org) — WebGL rendering (custom sky shader, particle systems)
-- [Vite](https://vitejs.dev) — dev/build
-- [Gemini API](https://ai.google.dev) — the Director (structured JSON output)
-- Web Speech API — voice input
+- **Gemini Flash** — the Director (structured JSON: world identity + evolution beats)
+- **Nano Banana** (Gemini 2.5 Flash Image) — paints and *edits* each frame with continuity
+- **Web Speech API** — voice input
+- **Vite** + vanilla JS + Canvas2D — the real-time living layer (no heavy framework)
 
-## Project structure
+## Structure
 ```
 src/
-  director/   Director.js (Gemini + offline fallback), prompts.js (the brief + schema)
-  engine/     WorldState.js (schema + patch validation), WorldEngine.js (the living loop)
-  render/     Renderer.js (three.js scene)
-  ui/         ui.js, styles.css (cinematic UI, voice, HUD, timeline)
-  main.js     wires it all together
+  director/   Director.js (Gemini calls), prompts.js (scene/evolve/beat briefs + schemas)
+  canvas/     LivingCanvas.js (cross-fade, Ken Burns, particle weather)
+  ui/         ui.js, styles.css (HUD, voice, memory filmstrip)
+  main.js     orchestration: birth → autonomous heartbeat → reactions
 ```
 
-## Security note
-The demo calls Gemini directly from the browser (key via Vite env). Fine for a hackathon; for
-production, proxy the call through a tiny server so the key stays secret.
+## Cost & security
+Each frame is one **Nano Banana** image (~$0.04); a full demo session is cents, and evolution
+pauses when the tab is hidden or when you pause it. The demo calls Gemini directly from the
+browser with a Vite env key — fine for a hackathon; proxy it in production so the key stays secret.
 
 ## Attribution
-three.js (MIT), Vite (MIT), Google Gemini API, Google Fonts (Fraunces, Inter). All world logic,
-shaders and the Director brief are original to this project.
-# AI-art-world
+Google Gemini API (Flash + Nano Banana / Gemini 2.5 Flash Image), Vite (MIT), Google Fonts
+(Fraunces, Inter). All world logic, the Director briefs, and the living-canvas renderer are
+original to this project.

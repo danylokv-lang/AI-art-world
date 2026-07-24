@@ -1,27 +1,28 @@
-// UI — all DOM: the command bar, voice input, the living HUD, timeline and
-// onboarding. It emits phrases via onPhrase() and renders world state via
-// update(). It knows nothing about three.js or the Director.
+// UI — DOM glue for the living canvas: command bar, voice, HUD, beat caption,
+// and the memory filmstrip. Emits phrases via onPhrase(); knows nothing about AI.
 
-import { SEED_PHRASES } from '../engine/WorldState.js';
+import { SEED_PHRASES } from '../director/prompts.js';
 
 export class UI {
   constructor() {
     this.$ = (id) => document.getElementById(id);
     this.onPhrase = () => {};
+    this.onSelectFrame = () => {};
     this.busy = false;
 
     this.input = this.$('phrase');
-    this.send = this.$('send');
-    this.mic = this.$('mic');
-    this.onboarding = this.$('onboarding');
-    this.hud = this.$('hud');
-    this.timeline = this.$('timeline');
-    this.status = this.$('status');
-    this.commandbar = this.$('commandbar');
-
+    this.onTogglePause = () => {};
     this._wire();
     this._buildChips();
     this._setupSpeech();
+    this.$('live').addEventListener('click', () => this.onTogglePause());
+  }
+
+  setPaused(paused) {
+    const el = this.$('live');
+    el.innerHTML = `<i></i> ${paused ? 'paused' : 'living'}`;
+    el.classList.toggle('is-paused', paused);
+    el.title = paused ? 'resume the world' : 'pause the world';
   }
 
   _wire() {
@@ -31,7 +32,7 @@ export class UI {
       this.input.value = '';
       this.onPhrase(v);
     };
-    this.send.addEventListener('click', submit);
+    this.$('send').addEventListener('click', submit);
     this.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
   }
 
@@ -47,13 +48,13 @@ export class UI {
 
   _setupSpeech() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { this.mic.style.display = 'none'; return; }
-    const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
+    const mic = this.$('mic');
+    if (!SR) { mic.style.display = 'none'; return; }
+    const rec = new SR(); rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
     let finalText = '';
-    this.mic.addEventListener('click', () => {
-      if (this.mic.classList.contains('is-listening')) { rec.stop(); return; }
-      finalText = ''; this.mic.classList.add('is-listening'); rec.start();
+    mic.addEventListener('click', () => {
+      if (mic.classList.contains('is-listening')) { rec.stop(); return; }
+      finalText = ''; mic.classList.add('is-listening'); rec.start();
     });
     rec.addEventListener('result', (e) => {
       let interim = '';
@@ -64,49 +65,71 @@ export class UI {
       this.input.value = finalText || interim;
     });
     rec.addEventListener('end', () => {
-      this.mic.classList.remove('is-listening');
+      mic.classList.remove('is-listening');
       const v = this.input.value.trim();
-      if (v) { this.input.value = ''; this.onPhrase(v); }
+      if (v && !this.busy) { this.input.value = ''; this.onPhrase(v); }
     });
-    rec.addEventListener('error', () => this.mic.classList.remove('is-listening'));
+    rec.addEventListener('error', () => mic.classList.remove('is-listening'));
+  }
+
+  reveal() {
+    this.$('onboarding').classList.add('is-hidden');
+    this.$('hud').classList.add('is-live');
+    this.$('film').classList.add('is-live');
   }
 
   setBusy(on, msg) {
     this.busy = on;
-    this.commandbar.classList.toggle('is-busy', on);
+    this.$('commandbar').classList.toggle('is-busy', on);
+    this.$('live').classList.toggle('is-painting', on);
     if (msg) this.showStatus(msg); else this.hideStatus();
   }
 
-  showStatus(msg) { this.status.textContent = msg; this.status.classList.add('is-show'); }
-  hideStatus() { this.status.classList.remove('is-show'); }
+  // Non-blocking "the world is painting" indicator — input stays usable so the
+  // viewer can speak a command while an autonomous beat renders.
+  setPainting(on, msg) {
+    this.$('live').classList.toggle('is-painting', on);
+    if (on && msg) this.showStatus(msg); else if (!on) this.hideStatus();
+  }
+  showStatus(msg) { const s = this.$('status'); s.textContent = msg; s.classList.add('is-show'); }
+  hideStatus() { this.$('status').classList.remove('is-show'); }
 
-  reveal() {
-    this.onboarding.classList.add('is-hidden');
-    this.hud.classList.add('is-live');
-    this.timeline.classList.add('is-live');
+  updateHUD({ name, tagline, phase, beat }) {
+    if (name) this.$('worldName').textContent = name;
+    if (tagline) this.$('worldTagline').textContent = tagline;
+    if (phase) this.$('metaPhase').textContent = phase;
+    if (beat != null) this.$('metaBeat').textContent = `age ${beat}`;
   }
 
-  addTimelineDot(label) {
-    const dot = document.createElement('div');
-    dot.className = 'tl-dot';
-    dot.dataset.label = label;
-    // newest on the right; nudge previous dots left
-    const dots = this.timeline.querySelectorAll('.tl-dot');
-    dots.forEach((d) => { const l = parseFloat(d.style.left) || 100; d.style.left = Math.max(3, l - 12) + '%'; });
-    dot.style.left = '96%';
-    this.timeline.appendChild(dot);
-    if (dots.length > 9) dots[0].remove();
+  setBeat(caption) {
+    const el = this.$('beat');
+    el.classList.remove('show');
+    if (!caption) return;
+    // restart the fade
+    void el.offsetWidth;
+    el.textContent = `“${caption}”`;
+    el.classList.add('show');
   }
 
-  // Reflect the living world onto the HUD each frame.
-  update(world) {
-    this.$('worldName').textContent = world.name;
-    this.$('worldTagline').textContent = world.tagline;
-    this.$('vSeason').textContent = world.time.season;
-    this.$('vPhase').textContent = world.time.phase;
-    this.$('vMood').style.width = Math.round(world.mood * 100) + '%';
-    this.$('vHealth').style.width = Math.round(world.health * 100) + '%';
-    // Vitality tints from gold (healthy) toward grey (fading).
-    this.$('vHealth').style.background = world.health > 0.4 ? 'var(--accent)' : 'rgba(180,180,190,0.6)';
+  addFrame(dataUrl, index) {
+    const film = this.$('film');
+    const f = document.createElement('div');
+    f.className = 'frame current';
+    f.style.backgroundImage = `url("${dataUrl}")`;
+    f.dataset.index = index;
+    f.addEventListener('click', () => this.onSelectFrame(index));
+    // de-highlight others
+    film.querySelectorAll('.frame.current').forEach((e) => e.classList.remove('current'));
+    film.appendChild(f);
+    // keep the strip from overflowing
+    const frames = film.querySelectorAll('.frame');
+    if (frames.length > 10) frames[0].remove();
+    film.scrollLeft = film.scrollWidth;
+  }
+
+  markCurrent(index) {
+    this.$('film').querySelectorAll('.frame').forEach((e) => {
+      e.classList.toggle('current', Number(e.dataset.index) === index);
+    });
   }
 }

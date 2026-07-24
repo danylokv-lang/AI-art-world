@@ -1,0 +1,18 @@
+{
+  "name": "aether-art-world",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AETHER — speak a phrase and a living world is born, evolves over time and reacts to your words.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

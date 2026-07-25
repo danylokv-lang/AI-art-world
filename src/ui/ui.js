@@ -1,5 +1,5 @@
-// UI — DOM glue for the living canvas: command bar, voice, HUD, beat caption,
-// and the memory filmstrip. Emits phrases via onPhrase(); knows nothing about AI.
+// UI — DOM glue: command bar, voice, HUD, beat caption, pause toggle.
+// Emits phrases via onPhrase(); knows nothing about the renderer or the AI.
 
 import { SEED_PHRASES } from '../director/prompts.js';
 
@@ -7,22 +7,14 @@ export class UI {
   constructor() {
     this.$ = (id) => document.getElementById(id);
     this.onPhrase = () => {};
-    this.onSelectFrame = () => {};
+    this.onTogglePause = () => {};
     this.busy = false;
 
     this.input = this.$('phrase');
-    this.onTogglePause = () => {};
     this._wire();
     this._buildChips();
     this._setupSpeech();
     this.$('live').addEventListener('click', () => this.onTogglePause());
-  }
-
-  setPaused(paused) {
-    const el = this.$('live');
-    el.innerHTML = `<i></i> ${paused ? 'paused' : 'living'}`;
-    el.classList.toggle('is-paused', paused);
-    el.title = paused ? 'resume the world' : 'pause the world';
   }
 
   _wire() {
@@ -75,7 +67,6 @@ export class UI {
   reveal() {
     this.$('onboarding').classList.add('is-hidden');
     this.$('hud').classList.add('is-live');
-    this.$('film').classList.add('is-live');
   }
 
   setBusy(on, msg) {
@@ -84,15 +75,19 @@ export class UI {
     this.$('live').classList.toggle('is-painting', on);
     if (msg) this.showStatus(msg); else this.hideStatus();
   }
-
-  // Non-blocking "the world is painting" indicator — input stays usable so the
-  // viewer can speak a command while an autonomous beat renders.
   setPainting(on, msg) {
     this.$('live').classList.toggle('is-painting', on);
     if (on && msg) this.showStatus(msg); else if (!on) this.hideStatus();
   }
   showStatus(msg) { const s = this.$('status'); s.textContent = msg; s.classList.add('is-show'); }
   hideStatus() { this.$('status').classList.remove('is-show'); }
+
+  setPaused(paused) {
+    const el = this.$('live');
+    el.innerHTML = `<i></i> ${paused ? 'paused' : 'living'}`;
+    el.classList.toggle('is-paused', paused);
+    el.title = paused ? 'resume the world' : 'pause the world';
+  }
 
   updateHUD({ name, tagline, phase, beat }) {
     if (name) this.$('worldName').textContent = name;
@@ -105,31 +100,8 @@ export class UI {
     const el = this.$('beat');
     el.classList.remove('show');
     if (!caption) return;
-    // restart the fade
     void el.offsetWidth;
     el.textContent = `“${caption}”`;
     el.classList.add('show');
-  }
-
-  addFrame(dataUrl, index) {
-    const film = this.$('film');
-    const f = document.createElement('div');
-    f.className = 'frame current';
-    f.style.backgroundImage = `url("${dataUrl}")`;
-    f.dataset.index = index;
-    f.addEventListener('click', () => this.onSelectFrame(index));
-    // de-highlight others
-    film.querySelectorAll('.frame.current').forEach((e) => e.classList.remove('current'));
-    film.appendChild(f);
-    // keep the strip from overflowing
-    const frames = film.querySelectorAll('.frame');
-    if (frames.length > 10) frames[0].remove();
-    film.scrollLeft = film.scrollWidth;
-  }
-
-  markCurrent(index) {
-    this.$('film').querySelectorAll('.frame').forEach((e) => {
-      e.classList.toggle('current', Number(e.dataset.index) === index);
-    });
   }
 }

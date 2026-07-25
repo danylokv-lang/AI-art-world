@@ -55,6 +55,20 @@ export class TerrainSystem implements System {
   private flickerBoost = 0;
   private unsubscribe: (() => void) | null = null;
 
+  /**
+   * The shape seed for a terrain layer.
+   *
+   * Every system that places something *on* the ground must derive the terrain
+   * shape from exactly this function. It previously did not: this system used
+   * `randInt` on a stream it also spent on buildings, while foliage used
+   * `Math.round(rng() * 1e6)` on a fresh one. Two different seeds meant trees
+   * were positioned against a mountain that was never drawn — which is why
+   * they appeared to float in mid-air and stand in open water.
+   */
+  static seedFor(ctx: SceneContext, index: number): number {
+    return Math.round(ctx.rng(`terrain-shape-${index}`)() * 1e6);
+  }
+
   /** Height profile in virtual pixels (y of the terrain top edge at x). */
   static heightFn(
     spec: TerrainLayerSpec,
@@ -91,7 +105,7 @@ export class TerrainSystem implements System {
 
     ctx.spec.terrain.forEach((layerSpec, i) => {
       const rng = ctx.rng(`terrain-${i}`);
-      const seed = randInt(rng, 1, 1e6);
+      const seed = TerrainSystem.seedFor(ctx, i);
       const ramp = p[layerSpec.ramp];
 
       // Atmospheric perspective — the further back, the more the silhouette is

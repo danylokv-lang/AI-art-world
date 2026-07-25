@@ -123,8 +123,7 @@ export class FoliageSystem implements System {
 
   private hostHeight(ctx: SceneContext, host: TerrainLayerSpec): (x: number) => number {
     const idx = ctx.spec.terrain.indexOf(host);
-    const seed = Math.round(ctx.rng(`terrain-${idx}`)() * 1e6);
-    return TerrainSystem.heightFn(host, ctx.height, seed);
+    return TerrainSystem.heightFn(host, ctx.height, TerrainSystem.seedFor(ctx, idx));
   }
 
   private buildProps(ctx: SceneContext, rng: Rng, tones: FoliageTones): void {

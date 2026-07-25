@@ -176,6 +176,51 @@ export function discTexture(radius: number, hex: Hex): Texture {
   return textureFrom(canvas);
 }
 
+/**
+ * A hard-edged, dithered light cone — a lighthouse beam.
+ *
+ * The first version of this was a radial glow scaled to (2.2, 0.16) and
+ * rotated. A stretched blur is the wrong primitive: it produced a soft diagonal
+ * smear across the frame that was the only un-pixelated element in the scene
+ * and read as a rendering fault rather than as light.
+ *
+ * Anchored at (0, 0.5) so it pivots about the lamp.
+ */
+export function beamTexture(length: number, spread: number, hex: Hex): Texture {
+  const w = Math.max(2, Math.round(length));
+  const h = Math.max(2, Math.round(spread * 2));
+  const canvas = createCanvas(w, h);
+  const g = ctx2d(canvas);
+  const img = g.createImageData(w, h);
+  const data = img.data;
+  const c = hexToRgb(hex);
+  const mid = h / 2;
+
+  for (let x = 0; x < w; x++) {
+    const t = x / w;
+    const halfH = (0.12 + t * 0.88) * spread; // widens with distance
+    // Brightest at the lamp, gone by the tip.
+    const along = Math.pow(1 - t, 1.5);
+    for (let y = 0; y < h; y++) {
+      const across = Math.abs(y - mid) / Math.max(1, halfH);
+      if (across >= 1) continue;
+      let a = along * (1 - across * across) * 0.85;
+      const steps = 4;
+      const lv = a * steps;
+      const base = Math.floor(lv);
+      a = Math.min(steps, base + (lv - base > bayer(x, y) ? 1 : 0)) / steps;
+      if (a <= 0) continue;
+      const o = (y * w + x) * 4;
+      data[o] = c.r;
+      data[o + 1] = c.g;
+      data[o + 2] = c.b;
+      data[o + 3] = Math.round(a * 150);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return textureFrom(canvas);
+}
+
 /** A 1x1 texture — stretched for solid fills without touching Graphics. */
 export function solidTexture(hex: Hex): Texture {
   const canvas = createCanvas(1, 1);
@@ -211,15 +256,18 @@ export function fillSilhouette(
     const top = Math.round(heightAt(x));
     for (let y = Math.max(0, top); y < h; y++) {
       const depthBelow = y - top;
+      // Tight transition bands. Dithering spread over tens of pixels stops
+      // reading as shading and starts reading as noise, which is what turned
+      // the near hills into static.
       let c = cBody;
       if (depthBelow < rimThickness) {
         c = cRim;
-      } else if (depthBelow < rimThickness + 5) {
+      } else if (depthBelow < rimThickness + 3) {
         // Dither from rim into body so the lit edge does not end abruptly.
-        const t = (depthBelow - rimThickness) / 5;
+        const t = (depthBelow - rimThickness) / 3;
         c = t > bayer(x, y) ? cBody : cRim;
-      } else if (depthBelow > 18) {
-        const t = Math.min(1, (depthBelow - 18) / 26);
+      } else if (depthBelow > 26) {
+        const t = Math.min(1, (depthBelow - 26) / 10);
         c = t > bayer(x, y) ? cShadow : cBody;
       }
       const o = (y * w + x) * 4;

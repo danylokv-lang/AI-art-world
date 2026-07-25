@@ -69,10 +69,13 @@ export function sampleRamp(ramp: readonly [Hex, Hex, Hex], t: number): Hex {
  */
 export function aerial(color: Hex, horizon: Hex, depth: number): Hex {
   // depth 0 = furthest → heaviest wash; depth 1 = closest → untouched.
-  // The floor is deliberately high: washing a far ridge 75% into the horizon
-  // is physically defensible but visually erases it, and a silhouette you
-  // cannot see contributes no depth at all.
-  return mixHex(horizon, color, clamp01(0.4 + depth * 0.6));
+  //
+  // The floor is deliberately high. Washing a far ridge most of the way into
+  // the horizon is physically defensible but visually erases it — on a bright
+  // desert palette, where sand and sky-horizon are already close, it collapsed
+  // every plane into one cream-coloured mush with no readable dune shapes. A
+  // silhouette you cannot see contributes no depth at all.
+  return mixHex(horizon, color, clamp01(0.62 + depth * 0.38));
 }
 
 /**

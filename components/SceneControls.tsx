@@ -40,7 +40,12 @@ export default function SceneControls({ engine, cycle, onCycle, initialWeather }
 
   useEffect(() => setWeather(initialWeather), [initialWeather]);
 
-  const label = TIME_ORDER[Math.floor(((cycle % 1) + 1) % 1 * TIME_ORDER.length)];
+  // Round, not floor. The cycle wraps night → dawn at 1.0, so `floor` reported
+  // "night" for the entire top quarter of the slider while the renderer was
+  // already blending back into dawn — the label and the scene disagreed at the
+  // far right of the track. Rounding names the phase the scene is nearest to.
+  const norm = ((cycle % 1) + 1) % 1;
+  const label = TIME_ORDER[Math.round(norm * TIME_ORDER.length) % TIME_ORDER.length];
 
   return (
     <div className="pointer-events-auto flex flex-col items-end gap-2">

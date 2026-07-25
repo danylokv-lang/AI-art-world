@@ -16,7 +16,7 @@ import type { SceneContext, System } from '../System';
 import type { StructureKind, TerrainLayerSpec } from '../types';
 import { CAMERA_MARGIN } from '../constants';
 import { TerrainSystem } from './TerrainSystem';
-import { glowTexture } from '../draw';
+import { beamTexture, glowTexture } from '../draw';
 import {
   hutTexture,
   lighthouseTexture,
@@ -59,8 +59,7 @@ export class StructureSystem implements System {
 
   private hostHeight(ctx: SceneContext, host: TerrainLayerSpec): (x: number) => number {
     const idx = ctx.spec.terrain.indexOf(host);
-    const seed = Math.round(ctx.rng(`terrain-${idx}`)() * 1e6);
-    return TerrainSystem.heightFn(host, ctx.height, seed);
+    return TerrainSystem.heightFn(host, ctx.height, TerrainSystem.seedFor(ctx, idx));
   }
 
   private countFor(kind: StructureKind, density: number, width: number): number {
@@ -124,16 +123,14 @@ export class StructureSystem implements System {
       const lampWorldX = s.x - texture.width / 2 + lampX;
       const lampWorldY = s.y - texture.height + lampY;
 
-      // The beam is a wide, very soft glow rotated about the lamp. A hard cone
-      // would need a mask; a stretched glow reads better and costs one sprite.
-      const beamTex = glowTexture(90, mixHex(p.accent, '#ffffff', 0.45), 1.35);
+      const beamTex = beamTexture(150, 16, mixHex(p.accent, '#ffffff', 0.45));
       this.textures.push(beamTex);
       this.beam = new Sprite(beamTex);
-      this.beam.anchor.set(0.5);
+      // Pivot at the lamp end of the cone, not its centre.
+      this.beam.anchor.set(0, 0.5);
       this.beam.position.set(lampWorldX, lampWorldY);
       this.beam.blendMode = 'add';
       this.beam.alpha = 0.5;
-      this.beam.scale.set(2.2, 0.16);
       this.root.addChild(this.beam);
 
       const lampTex = glowTexture(14, mixHex(p.accent, '#ffffff', 0.6), 2.2);

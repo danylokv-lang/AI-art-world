@@ -58,22 +58,28 @@ function godRayTexture(w: number, h: number, tint: string): Texture {
   const img = g.createImageData(w, h);
   const data = img.data;
   const c = hexToRgb(tint);
-  const rays = [0.12, 0.26, 0.34, 0.51, 0.63, 0.78];
+  const rays = [0.19, 0.33, 0.55, 0.71];
 
   for (let y = 0; y < h; y++) {
     // Shafts widen and fade as they descend.
     const down = y / h;
-    const fade = clamp01(1 - down * 1.25) * 0.55;
+    const fade = clamp01(1 - down * 1.5) * 0.4;
     for (let x = 0; x < w; x++) {
       let a = 0;
       for (const r of rays) {
-        const cx = (r + down * 0.16) * w;
-        const halfW = w * (0.012 + down * 0.02);
+        // Strong lateral slew so the shafts read as angled light from the sun
+        // rather than as vertical bands. Vertical rays over a whole sky look
+        // like smears on the lens, which is exactly how the first pass read.
+        const cx = (r + down * 0.42) * w;
+        const halfW = w * (0.005 + down * 0.009);
         const d = Math.abs(x - cx) / halfW;
         if (d < 1) a = Math.max(a, (1 - d) * fade);
       }
       if (a <= 0) continue;
-      const steps = 6;
+      // Only 3 alpha steps: coarse dithering keeps the shaft on the pixel grid.
+      // A smooth shaft is the one un-pixelated thing on screen and the eye
+      // finds it immediately.
+      const steps = 3;
       const lv = a * steps;
       const base = Math.floor(lv);
       a = Math.min(steps, base + (lv - base > bayer(x, y) ? 1 : 0)) / steps;
@@ -81,7 +87,7 @@ function godRayTexture(w: number, h: number, tint: string): Texture {
       data[o] = c.r;
       data[o + 1] = c.g;
       data[o + 2] = c.b;
-      data[o + 3] = Math.round(a * 90);
+      data[o + 3] = Math.round(a * 30);
     }
   }
   g.putImageData(img, 0, 0);
@@ -158,7 +164,7 @@ export class LightingSystem implements System {
       // Rays only exist when the light is low and the sky is bright enough to
       // scatter — overhead noon does not produce visible shafts.
       const low = clamp01(1 - Math.abs(grade.warmth - 0.5) / 0.5);
-      this.rays.alpha = low * grade.ambient * 0.85;
+      this.rays.alpha = low * grade.ambient * 0.35;
       this.rays.x = Math.sin(ctx.time * 0.08) * 3;
     }
 

@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aether-art-world",
+  "main": ".open-next/worker.js",
+  // `nodejs_compat` is required by the OpenNext runtime; the minimum
+  // compatibility date for it is 2024-09-23.
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Required, not optional. `global_fetch_strictly_public` sends every fetch to
+  // the public internet, so the OpenNext router's self-referencing request
+  // cannot loop back internally — without this binding every route returns
+  // Cloudflare error 1042.
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "aether-art-world"
+    }
+  ]
+  // Deliberately omitted for now:
+  //  - NEXT_INC_CACHE_R2_BUCKET: the app has no ISR or cached data routes.
+  //    Scene replay reads a spec from Postgres and re-derives the world from
+  //    its seed, so there is nothing at the edge worth caching yet.
+  //  - IMAGES binding: the engine generates every texture in the browser at
+  //    runtime, so next/image is unused.
+  // Secrets (GEMINI_API_KEY, SUPABASE_SERVICE_ROLE_KEY) are NOT set here.
+  // Use `wrangler secret put <NAME>` — anything in this file is committed.
+}

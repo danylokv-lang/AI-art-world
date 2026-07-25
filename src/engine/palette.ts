@@ -190,6 +190,87 @@ export function ambientTint(cycle: number, baseCycle: number): number {
   return (r << 16) | (g << 8) | bl;
 }
 
+/* ------------------------------------------------------- quantisation LUT */
+
+/**
+ * The fixed set of colours a scene is allowed to draw with.
+ *
+ * This exists because the "palette discipline" this module claimed was not
+ * actually enforced. `sampleRamp`, `aerial` and `relight` are all continuous
+ * blends, so a frame contained hundreds of distinct colours rather than the
+ * authored sixteen — which is precisely why the output read as soft, muddy and
+ * airbrushed instead of as pixel art. Dithering cannot rescue continuous
+ * colour underneath.
+ *
+ * So every baked texture is now snapped to this LUT. It is also what will let
+ * AI-generated object sprites sit on procedural terrain without clashing:
+ * both go through the same function, so both end up in the same colour space.
+ */
+export type LUT = ReadonlyArray<RGB>;
+
+/**
+ * Expand the 16 authored roles into a ~30-entry ramp set.
+ *
+ * More than the authored 16 because silhouettes need intermediate steps to
+ * dither between, but far fewer than continuous blending — the constraint is
+ * the point.
+ */
+export function buildLUT(p: Palette): LUT {
+  const out: RGB[] = [];
+  const push = (hex: Hex) => {
+    const c = hexToRgb(hex);
+    // Deduplicate; near-identical entries waste LUT slots and dither budget.
+    if (!out.some((o) => Math.abs(o.r - c.r) + Math.abs(o.g - c.g) + Math.abs(o.b - c.b) < 9)) {
+      out.push(c);
+    }
+  };
+
+  // Sky gets the most steps: it occupies the largest area, so banding there is
+  // the most visible.
+  for (let i = 0; i <= 4; i++) push(mixHex(p.skyTop, p.skyMid, i / 4));
+  for (let i = 1; i <= 4; i++) push(mixHex(p.skyMid, p.skyHorizon, i / 4));
+  push(mixHex(p.skyHorizon, p.light, 0.35));
+  push(p.light);
+
+  for (const ramp of [p.far, p.mid, p.near, p.water, p.foliage]) {
+    push(ramp[0]);
+    push(mixHex(ramp[0], ramp[1], 0.5));
+    push(ramp[1]);
+    push(mixHex(ramp[1], ramp[2], 0.5));
+    push(ramp[2]);
+  }
+
+  push(p.accent);
+  push(mixHex(p.accent, p.light, 0.5));
+  push(shade(p.near[0], -0.45)); // deepest shadow
+  return out;
+}
+
+/**
+ * Nearest LUT entry, weighted toward luminance.
+ *
+ * Plain Euclidean RGB distance picks perceptually wrong neighbours — it will
+ * happily swap a colour for one of similar brightness but a different hue.
+ * Weighting by the luminance coefficients keeps values consistent, which is
+ * what the eye actually reads in a limited palette.
+ */
+export function quantize(r: number, g: number, b: number, lut: LUT): RGB {
+  let best = lut[0];
+  let bestD = Infinity;
+  for (let i = 0; i < lut.length; i++) {
+    const c = lut[i];
+    const dr = (r - c.r) * 0.5;
+    const dg = (g - c.g) * 0.72;
+    const db = (b - c.b) * 0.32;
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
 /** Every colour a scene is allowed to use, flattened — for debug swatches. */
 export function paletteSwatches(p: Palette): Hex[] {
   return [

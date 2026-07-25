@@ -14,7 +14,8 @@ import { Application, Container, TextureStyle } from 'pixi.js';
 import { LayerStack } from './LayerStack';
 import { EventBus, type SceneContext, type System } from './System';
 import { deriveRng, clamp01, lerp } from './rng';
-import { TIME_ORDER } from './palette';
+import { TIME_ORDER, buildLUT } from './palette';
+import { setActiveLUT } from './draw';
 import { VIRTUAL_H, type SceneSpec, type WeatherKind } from './types';
 
 export interface EngineOptions {
@@ -117,6 +118,11 @@ export class SceneEngine {
     host.appendChild(canvas);
 
     this.app.stage.addChild(this.layers.root as Container);
+
+    // Must be set before anything bakes a texture — this is the constraint
+    // that makes the output read as pixel art rather than as a soft
+    // illustration made of squares.
+    setActiveLUT(buildLUT(this.ctx.spec.palette));
 
     this.systems = systems;
     for (const sys of this.systems) sys.build(this.ctx);

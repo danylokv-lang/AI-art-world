@@ -15,7 +15,7 @@
 
 import { Texture } from 'pixi.js';
 import type { Hex } from './types';
-import { hexToRgb, mixHex } from './palette';
+import { hexToRgb, mixHex, quantize, rgbToHex, type LUT, type RGB } from './palette';
 import { clamp01 } from './rng';
 
 /** Classic 4x4 Bayer matrix, normalised to 0..1. */
@@ -28,6 +28,34 @@ const BAYER4 = [
 
 export const bayer = (x: number, y: number): number =>
   BAYER4[y & 3][x & 3];
+
+/* ------------------------------------------------------------ quantisation */
+
+/**
+ * The active colour LUT, set once per scene before any system builds.
+ *
+ * Module-scoped state is not free, but the alternative is threading a palette
+ * argument through every drawing helper and every sprite generator, and the
+ * invariant we actually want is global anyway: *nothing* in a scene may draw a
+ * colour outside its palette. One place to enforce it is the honest shape.
+ */
+let activeLUT: LUT | null = null;
+
+export function setActiveLUT(lut: LUT | null): void {
+  activeLUT = lut;
+}
+
+/** Snap a colour to the scene palette. Identity when no LUT is set. */
+export function snap(c: RGB): RGB {
+  return activeLUT ? quantize(c.r, c.g, c.b, activeLUT) : c;
+}
+
+/** Snap a hex string, for the `fillStyle` paths that draw with strings. */
+export function snapHex(hex: Hex): Hex {
+  if (!activeLUT) return hex;
+  const c = hexToRgb(hex);
+  return rgbToHex(quantize(c.r, c.g, c.b, activeLUT));
+}
 
 export function createCanvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -88,9 +116,11 @@ export function verticalGradientTexture(
 
   // Precompute one colour per band so we sample the ramp `bands` times, not
   // w*h times.
-  const bandColors: Array<{ r: number; g: number; b: number }> = [];
+  // Snap each band once, not per pixel — the whole point of banding is that
+  // there are only `bands` colours to resolve.
+  const bandColors: RGB[] = [];
   for (let i = 0; i <= bands; i++) {
-    bandColors.push(hexToRgb(sampleStops(stops, i / bands)));
+    bandColors.push(snap(hexToRgb(sampleStops(stops, i / bands))));
   }
 
   for (let y = 0; y < canvas.height; y++) {
@@ -248,9 +278,9 @@ export function fillSilhouette(
 ): void {
   const img = g.createImageData(w, h);
   const data = img.data;
-  const cBody = hexToRgb(body);
-  const cRim = hexToRgb(rim);
-  const cShadow = hexToRgb(shadow);
+  const cBody = snap(hexToRgb(body));
+  const cRim = snap(hexToRgb(rim));
+  const cShadow = snap(hexToRgb(shadow));
 
   for (let x = 0; x < w; x++) {
     const top = Math.round(heightAt(x));

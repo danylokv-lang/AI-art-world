@@ -16,7 +16,7 @@
  */
 
 import { Texture } from 'pixi.js';
-import { createCanvas, ctx2d, textureFrom } from '../draw';
+import { createCanvas, ctx2d, snapHex, textureFrom } from '../draw';
 import type { Hex, Palette } from '../types';
 import { mixHex, sampleRamp, shade } from '../palette';
 import { randInt, randRange, type Rng } from '../rng';
@@ -24,7 +24,9 @@ import { randInt, randRange, type Rng } from '../rng';
 type G = CanvasRenderingContext2D;
 
 const px = (g: G, x: number, y: number, w: number, h: number, c: Hex): void => {
-  g.fillStyle = c;
+  // Every sprite pixel goes through the scene LUT, so procedural art and
+  // imported art share one colour space and cannot clash.
+  g.fillStyle = snapHex(c);
   g.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
 };
 

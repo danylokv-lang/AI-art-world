@@ -13,7 +13,7 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import type { SceneContext, System } from '../System';
 import type { Hex } from '../types';
-import { createCanvas, ctx2d, textureFrom } from '../draw';
+import { createCanvas, ctx2d, snap, textureFrom } from '../draw';
 import { hexToRgb, mixHex, shade } from '../palette';
 import { clamp01, randInt, randRange, type Rng } from '../rng';
 
@@ -45,9 +45,9 @@ function cloudTexture(rng: Rng, body: Hex, rim: Hex, under: Hex): Texture {
   const g = ctx2d(canvas);
   const img = g.createImageData(w, h);
   const data = img.data;
-  const cBody = hexToRgb(body);
-  const cRim = hexToRgb(rim);
-  const cUnder = hexToRgb(under);
+  const cBody = snap(hexToRgb(body));
+  const cRim = snap(hexToRgb(rim));
+  const cUnder = snap(hexToRgb(under));
 
   const solid = (x: number, y: number): boolean => {
     if (y >= h * 0.78) return false; // flat base

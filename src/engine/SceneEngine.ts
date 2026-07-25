@@ -127,6 +127,12 @@ export class SceneEngine {
     this.app.ticker.add(this.tick);
     this.started = true;
     this.app.ticker.addOnce(() => this.markReady());
+
+    // Debug handle. Toggling individual layers is by far the fastest way to
+    // find which system is responsible for something on screen.
+    if (process.env.NODE_ENV !== 'production') {
+      (window as unknown as { __aether?: SceneEngine }).__aether = this;
+    }
   }
 
   private computeVirtualSize(): { width: number; height: number } {

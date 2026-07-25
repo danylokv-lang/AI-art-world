@@ -158,6 +158,35 @@ export function gradeAtCycle(t: number): Grade {
   return blendGrade(a, b, frac);
 }
 
+/**
+ * The multiply tint that baked sprites apply to follow the day cycle.
+ *
+ * Systems own their own relighting rather than having a global overlay do it,
+ * because a single full-screen multiply would also hit the sky — which is
+ * already relit at texture-bake time — and darken it twice. Each system calls
+ * this and assigns the result to `sprite.tint`.
+ *
+ * Normalised so the authored time returns 0xffffff: `tint` can only darken, so
+ * "no change" has to be white. Brightening past the authored palette is the
+ * LightingSystem's additive pass, not this.
+ */
+export function ambientTint(cycle: number, baseCycle: number): number {
+  const now = gradeAtCycle(cycle);
+  const authored = gradeAtCycle(baseCycle);
+  const level = clamp(relativeAmbient(cycle, baseCycle), 0, 1);
+
+  const ratio = (shift: number): number => {
+    const a = (now.multiply >> shift) & 255;
+    const b = (authored.multiply >> shift) & 255;
+    return clamp01(b === 0 ? 1 : a / b);
+  };
+
+  const r = Math.round(255 * ratio(16) * level);
+  const g = Math.round(255 * ratio(8) * level);
+  const bl = Math.round(255 * ratio(0) * level);
+  return (r << 16) | (g << 8) | bl;
+}
+
 /** Every colour a scene is allowed to use, flattened — for debug swatches. */
 export function paletteSwatches(p: Palette): Hex[] {
   return [
